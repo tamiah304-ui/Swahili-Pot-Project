@@ -206,3 +206,11 @@ CREATE TABLE IF NOT EXISTS partners (
 );
 
 CREATE INDEX IF NOT EXISTS idx_partners_active ON partners (is_active, sort_order);
+
+-- Uploaded landing-page imagery (hero, about), keyed by slot.
+CREATE TABLE IF NOT EXISTS site_media (
+  key VARCHAR(60) PRIMARY KEY,
+  file_url VARCHAR(500) NOT NULL,
+  file_storage VARCHAR(10),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

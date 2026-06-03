@@ -8,6 +8,9 @@ import {
   updatePartner,
   deletePartner,
   partnerLogoUrl,
+  uploadMedia,
+  deleteMedia,
+  mediaUrl,
 } from '../../api/site';
 import { useToast } from '../../components/ui/Toast';
 import Card from '../../components/ui/Card';
@@ -85,16 +88,75 @@ export default function SiteContentPage() {
       </div>
 
       {tab === 'Numbers' && <MetricsEditor value={content.metrics} onSave={(v) => save('metrics', v)} />}
-      {tab === 'Hero' && <HeroEditor value={content.hero} onSave={(v) => save('hero', v)} />}
+      {tab === 'Hero' && <HeroEditor value={content.hero} hasMedia={!!content.media?.hero} onSave={(v) => save('hero', v)} />}
       {tab === 'Story' && (
         <StoryEditor decade={content.decade} journey={content.journey} onSaveDecade={(v) => save('decade', v)} onSaveJourney={(v) => save('journey', v)} />
       )}
-      {tab === 'About' && <AboutEditor value={content.about} onSave={(v) => save('about', v)} />}
+      {tab === 'About' && <AboutEditor value={content.about} hasMedia={!!content.media?.about} onSave={(v) => save('about', v)} />}
       {tab === 'Programs' && <ProgramsEditor value={content.programs} onSave={(v) => save('programs', v)} />}
       {tab === 'Partners' && <PartnersEditor />}
       {tab === 'Footer' && (
         <FooterEditor contact={content.contact} newsletter={content.newsletter} onSaveContact={(v) => save('contact', v)} onSaveNewsletter={(v) => save('newsletter', v)} />
       )}
+    </div>
+  );
+}
+
+function MediaUploader({ mediaKey, label, initialHas }) {
+  const { show } = useToast();
+  const [has, setHas] = useState(initialHas);
+  const [bust, setBust] = useState(0);
+  const [busy, setBusy] = useState(false);
+
+  async function onPick(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    setBusy(true);
+    try {
+      await uploadMedia(mediaKey, fd);
+      setHas(true);
+      setBust((b) => b + 1);
+      show('Image updated — live on the site');
+    } catch (err) {
+      show(err.response?.data?.error || 'Upload failed', 'error');
+    } finally {
+      setBusy(false);
+      e.target.value = '';
+    }
+  }
+
+  async function remove() {
+    try {
+      await deleteMedia(mediaKey);
+      setHas(false);
+      show('Image removed');
+    } catch (err) {
+      show(err.response?.data?.error || 'Failed to remove', 'error');
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-line p-3">
+      <p className="mb-2 text-sm font-medium text-ink">{label}</p>
+      <div className="flex items-center gap-3">
+        <div className="flex h-16 w-28 shrink-0 items-center justify-center overflow-hidden rounded bg-canvas">
+          {has ? (
+            <img src={`${mediaUrl(mediaKey)}?v=${bust}`} alt={label} className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-xs text-subtle">No image</span>
+          )}
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-line bg-canvas px-3 py-2 text-sm text-subtle hover:border-brand-500">
+          <Upload size={15} /> {busy ? 'Uploading…' : has ? 'Replace' : 'Upload'}
+          <input type="file" accept=".png,.jpg,.jpeg" className="hidden" onChange={onPick} disabled={busy} />
+        </label>
+        {has && (
+          <button onClick={remove} className="text-sm text-[#dc2626] hover:underline">Remove</button>
+        )}
+      </div>
+      <p className="mt-2 text-xs text-subtle">Recommended: a wide, high-quality photo (JPG/PNG). Stored in your S3 bucket.</p>
     </div>
   );
 }
@@ -136,12 +198,13 @@ function MetricsEditor({ value, onSave }) {
   );
 }
 
-function HeroEditor({ value, onSave }) {
+function HeroEditor({ value, hasMedia, onSave }) {
   const [h, setH] = useState(value);
   const f = (k) => (e) => setH({ ...h, [k]: e.target.value });
   return (
     <SectionCard title="Hero Section" onSave={() => onSave(h)}>
       <div className="space-y-4">
+        <MediaUploader mediaKey="hero" label="Hero background photo" initialHas={hasMedia} />
         <Input label="Badge text" value={h.badge || ''} onChange={f('badge')} />
         <div className="grid gap-3 sm:grid-cols-3">
           <Input label="Title — start" value={h.titleLead || ''} onChange={f('titleLead')} />
@@ -203,12 +266,13 @@ function StoryEditor({ decade, journey, onSaveDecade, onSaveJourney }) {
   );
 }
 
-function AboutEditor({ value, onSave }) {
+function AboutEditor({ value, hasMedia, onSave }) {
   const [a, setA] = useState(value);
   const f = (k) => (e) => setA({ ...a, [k]: e.target.value });
   return (
     <SectionCard title="About Section" onSave={() => onSave(a)}>
       <div className="space-y-4">
+        <MediaUploader mediaKey="about" label="About section photo" initialHas={hasMedia} />
         <Input label="Eyebrow" value={a.eyebrow || ''} onChange={f('eyebrow')} />
         <div className="grid gap-3 sm:grid-cols-2">
           <Input label="Heading start" value={a.headingLead || ''} onChange={f('headingLead')} />

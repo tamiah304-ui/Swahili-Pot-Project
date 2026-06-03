@@ -60,3 +60,60 @@
   background-color: var(--color-line);
   border-radius: 9999px;
 }
+
+/* ---- Landing-page motion ---- */
+@keyframes sph-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-18px); }
+}
+@keyframes sph-float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-30px); }
+}
+@keyframes sph-blob {
+  0%, 100% { border-radius: 42% 58% 63% 37% / 42% 42% 58% 58%; }
+  50% { border-radius: 58% 42% 37% 63% / 58% 58% 42% 42%; }
+}
+@keyframes sph-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes sph-pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.7; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+.animate-float { animation: sph-float 6s ease-in-out infinite; }
+.animate-float-slow { animation: sph-float-slow 9s ease-in-out infinite; }
+.animate-blob { animation: sph-blob 14s ease-in-out infinite; }
+.animate-marquee { animation: sph-marquee 32s linear infinite; }
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  animation: sph-pulse-ring 2s ease-out infinite;
+}
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.reveal.in { opacity: 1; transform: none; }
+
+/* Subtle dotted grid for dark hero */
+.hero-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-float-slow,
+  .animate-blob,
+  .animate-marquee,
+  .pulse-ring::before { animation: none; }
+  .reveal { opacity: 1; transform: none; }
+}

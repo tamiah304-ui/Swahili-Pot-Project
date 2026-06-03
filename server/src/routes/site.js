@@ -14,6 +14,7 @@ const { SITE_DEFAULTS } = require('../lib/siteDefaults');
 const router = express.Router();
 
 const EDITABLE_KEYS = Object.keys(SITE_DEFAULTS); // hero, metrics, decade, journey, about, programs, newsletter, contact
+const MEDIA_KEYS = ['hero', 'about'];
 
 // ---- Public ----
 
@@ -33,6 +34,10 @@ router.get('/content', async (req, res, next) => {
       website: p.website,
       logo: p.logo_url ? `/api/site/partners/${p.id}/logo` : null,
     }));
+
+    const media = await pool.query('SELECT key FROM site_media');
+    content.media = {};
+    for (const m of media.rows) content.media[m.key] = `/api/site/media/${m.key}`;
 
     return res.json({ content });
   } catch (err) {
@@ -77,8 +82,73 @@ router.get('/partners/:id/logo', async (req, res, next) => {
   }
 });
 
+// GET /api/site/media/:key — public hero/about imagery (local disk or S3)
+router.get('/media/:key', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT file_url, file_storage FROM site_media WHERE key = $1',
+      [req.params.key]
+    );
+    const m = rows[0];
+    if (!m || !m.file_url) return res.status(404).end();
+
+    if ((m.file_storage || 's3') === 'local') {
+      const dir = path.resolve(process.env.UPLOADS_DIR || './uploads');
+      const fp = path.join(dir, path.basename(m.file_url));
+      if (!fs.existsSync(fp)) return res.status(404).end();
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.sendFile(fp);
+    }
+
+    try {
+      const obj = await getS3().send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: m.file_url }));
+      res.setHeader('Content-Type', obj.ContentType || 'image/jpeg');
+      if (obj.ContentLength != null) res.setHeader('Content-Length', obj.ContentLength);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      obj.Body.on('error', next);
+      return obj.Body.pipe(res);
+    } catch (e) {
+      if (e.name === 'NoSuchKey' || e.$metadata?.httpStatusCode === 404) return res.status(404).end();
+      throw e;
+    }
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // ---- Admin only (everything below) ----
 router.use(verifyToken, requireRole('admin'));
+
+// PUT /api/site/media/:key — upload hero/about image (field "file")
+router.put('/media/:key', upload.single('file'), async (req, res, next) => {
+  try {
+    const { key } = req.params;
+    if (!MEDIA_KEYS.includes(key)) return res.status(400).json({ error: 'Unknown media slot' });
+    if (!req.file) return res.status(400).json({ error: 'An image file is required' });
+
+    const fileUrl = req.file.key || req.file.filename;
+    await pool.query(
+      `INSERT INTO site_media (key, file_url, file_storage, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (key) DO UPDATE SET file_url = EXCLUDED.file_url,
+         file_storage = EXCLUDED.file_storage, updated_at = NOW()`,
+      [key, fileUrl, upload.STORAGE_DRIVER]
+    );
+    return res.json({ key, url: `/api/site/media/${key}` });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// DELETE /api/site/media/:key
+router.delete('/media/:key', async (req, res, next) => {
+  try {
+    await pool.query('DELETE FROM site_media WHERE key = $1', [req.params.key]);
+    return res.json({ message: 'Image removed' });
+  } catch (err) {
+    return next(err);
+  }
+});
 
 // PUT /api/site/content/:key — replace a section's content
 router.put('/content/:key', async (req, res, next) => {
