@@ -95,6 +95,18 @@ export default function LoginPage() {
             </Link>
           </div>
         </form>
+
+        <p className="mt-6 border-t border-[#e2e8f0] pt-4 text-center text-xs leading-relaxed text-[#6b7280]">
+          By signing in, you agree to our{' '}
+          <Link to="/terms" className="font-medium text-brand-600 hover:underline">
+            Terms of Service
+          </Link>{' '}
+          and{' '}
+          <Link to="/privacy" className="font-medium text-brand-600 hover:underline">
+            Privacy Policy
+          </Link>
+          .
+        </p>
       </div>
     </div>
   );

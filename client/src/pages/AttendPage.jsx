@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { getAttendSession, checkIn, checkOut } from '../api/attendance';
 import { formatEAT, formatTimeEAT } from '../lib/datetime';
@@ -203,6 +203,18 @@ export default function AttendPage() {
           </div>
         )}
       </div>
+
+      <p className="mt-6 max-w-md text-center text-xs leading-relaxed text-[#6b7280]">
+        By checking in, you agree to our{' '}
+        <Link to="/terms" className="font-medium text-brand-600 hover:underline">
+          Terms of Service
+        </Link>{' '}
+        and{' '}
+        <Link to="/privacy" className="font-medium text-brand-600 hover:underline">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </div>
   );
 }

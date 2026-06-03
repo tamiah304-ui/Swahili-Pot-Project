@@ -19,6 +19,8 @@ import InstructorsPage from './pages/users/InstructorsPage';
 import UsersPage from './pages/admin/UsersPage';
 import ProfilePage from './pages/account/ProfilePage';
 import SettingsPage from './pages/account/SettingsPage';
+import TermsPage from './pages/legal/TermsPage';
+import PrivacyPage from './pages/legal/PrivacyPage';
 
 export default function App() {
   return (
@@ -28,6 +30,13 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/attend/:token" element={<AttendPage />} />
+
+      {/* Legal (public) */}
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      {/* Common aliases → canonical paths */}
+      <Route path="/terms-of-service" element={<Navigate to="/terms" replace />} />
+      <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
 
       {/* Authenticated (wrapped in Layout) */}
       <Route
