@@ -19,6 +19,10 @@ import InstructorsPage from './pages/users/InstructorsPage';
 import UsersPage from './pages/admin/UsersPage';
 import ProfilePage from './pages/account/ProfilePage';
 import SettingsPage from './pages/account/SettingsPage';
+import TasksPage from './pages/tasks/TasksPage';
+import InquiriesPage from './pages/inquiries/InquiriesPage';
+import RemindersPage from './pages/attachee/RemindersPage';
+import AttacheesPage from './pages/attachees/AttacheesPage';
 import TermsPage from './pages/legal/TermsPage';
 import PrivacyPage from './pages/legal/PrivacyPage';
 
@@ -78,8 +82,42 @@ export default function App() {
         <Route
           path="/submissions/new"
           element={
-            <RoleRoute roles={['instructor']}>
+            <RoleRoute roles={['instructor', 'attachee']}>
               <NewSubmissionPage />
+            </RoleRoute>
+          }
+        />
+
+        {/* Attachment / internship programme */}
+        <Route
+          path="/tasks"
+          element={
+            <RoleRoute roles={['attachee', 'instructor', 'supervisor']}>
+              <TasksPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/inquiries"
+          element={
+            <RoleRoute roles={['attachee', 'instructor', 'supervisor']}>
+              <InquiriesPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/reminders"
+          element={
+            <RoleRoute roles={['attachee']}>
+              <RemindersPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="/attachees"
+          element={
+            <RoleRoute roles={['instructor', 'supervisor']}>
+              <AttacheesPage />
             </RoleRoute>
           }
         />

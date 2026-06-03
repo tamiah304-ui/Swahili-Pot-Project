@@ -22,6 +22,7 @@ router.get('/stats', async (req, res, next) => {
          (SELECT COUNT(*)::int FROM users WHERE role = 'admin') AS admins,
          (SELECT COUNT(*)::int FROM users WHERE role = 'supervisor') AS supervisors,
          (SELECT COUNT(*)::int FROM users WHERE role = 'instructor') AS instructors,
+         (SELECT COUNT(*)::int FROM users WHERE role = 'attachee') AS attachees,
          (SELECT COUNT(*)::int FROM users WHERE is_active = false) AS suspended,
          (SELECT COUNT(*)::int FROM departments) AS departments,
          (SELECT COUNT(*)::int FROM trainees WHERE is_active = true) AS trainees,
@@ -40,7 +41,7 @@ router.get('/users', async (req, res, next) => {
     const conditions = [];
     const params = [];
 
-    if (req.query.role && ['admin', 'supervisor', 'instructor'].includes(req.query.role)) {
+    if (req.query.role && ['admin', 'supervisor', 'instructor', 'attachee'].includes(req.query.role)) {
       params.push(req.query.role);
       conditions.push(`u.role = $${params.length}`);
     }
@@ -104,8 +105,8 @@ router.post('/users', async (req, res, next) => {
     if (!password || password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters' });
     }
-    if (!['supervisor', 'instructor'].includes(role)) {
-      return res.status(400).json({ error: 'Role must be supervisor or instructor' });
+    if (!['supervisor', 'instructor', 'attachee'].includes(role)) {
+      return res.status(400).json({ error: 'Role must be supervisor, instructor, or attachee' });
     }
     const deptId = parseInt(department_id, 10);
     if (Number.isNaN(deptId)) return res.status(400).json({ error: 'Department is required' });

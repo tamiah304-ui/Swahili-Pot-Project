@@ -16,6 +16,9 @@ const downtimeRoutes = require('./routes/downtime');
 const dashboardRoutes = require('./routes/dashboard');
 const notificationRoutes = require('./routes/notifications');
 const adminRoutes = require('./routes/admin');
+const taskRoutes = require('./routes/tasks');
+const attacheeRoutes = require('./routes/attachee');
+const inquiryRoutes = require('./routes/inquiries');
 
 const app = express();
 
@@ -46,6 +49,9 @@ app.use('/api/downtime', downtimeRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/attachee', attacheeRoutes);
+app.use('/api/inquiries', inquiryRoutes);
 
 // 404 fallback for unknown API routes
 app.use('/api', (req, res) => {

@@ -7,12 +7,21 @@ import {
   Radio,
   UserCog,
   ShieldCheck,
+  ListTodo,
+  GraduationCap,
+  MessageSquare,
+  AlarmClock,
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Logo from '../ui/Logo';
 
-const ROLE_LABEL = { admin: 'System Admin', supervisor: 'Supervisor', instructor: 'Instructor' };
+const ROLE_LABEL = {
+  admin: 'System Admin',
+  supervisor: 'Supervisor',
+  instructor: 'Instructor',
+  attachee: 'Attachee',
+};
 
 function buildNav(user) {
   const items = [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }];
@@ -23,12 +32,25 @@ function buildNav(user) {
     return items;
   }
 
+  // Attachee (intern) portal.
+  if (user.role === 'attachee') {
+    items.push({ to: '/tasks', label: 'My Tasks', icon: ListTodo });
+    items.push({ to: '/submissions', label: 'Submissions', icon: FileText });
+    items.push({ to: '/reminders', label: 'Reminders', icon: AlarmClock });
+    items.push({ to: '/inquiries', label: 'Inquiries', icon: MessageSquare });
+    return items;
+  }
+
+  // Instructor / supervisor.
   if (user.role === 'instructor' && user.has_trainees) {
     items.push({ to: '/trainees', label: 'Trainees', icon: Users });
     items.push({ to: '/attendance', label: 'Attendance', icon: ClipboardCheck });
   }
 
   items.push({ to: '/submissions', label: 'Submissions', icon: FileText });
+  items.push({ to: '/tasks', label: 'Tasks', icon: ListTodo });
+  items.push({ to: '/attachees', label: 'Attachees', icon: GraduationCap });
+  items.push({ to: '/inquiries', label: 'Inquiries', icon: MessageSquare });
 
   if (user.has_radio_report) {
     items.push({ to: '/downtime', label: 'Downtime Reports', icon: Radio });

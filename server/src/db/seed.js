@@ -64,10 +64,18 @@ async function seed() {
          ON CONFLICT (email) DO NOTHING`,
         [`${dept.name} Instructor`, instructorEmail, passwordHash, dept.id]
       );
+
+      // One attachee (intern) per department.
+      await client.query(
+        `INSERT INTO users (name, email, password_hash, role, department_id)
+         VALUES ($1, $2, $3, 'attachee', $4)
+         ON CONFLICT (email) DO NOTHING`,
+        [`${dept.name} Attachee`, `attachee.${dept.slug}@swahilipothub.co.ke`, passwordHash, dept.id]
+      );
     }
 
     await client.query('COMMIT');
-    console.log('Seed complete — 1 admin, 9 departments, 9 supervisors, 9 instructors ensured.');
+    console.log('Seed complete — 1 admin, 9 departments, 9 supervisors, 9 instructors, 9 attachees ensured.');
     console.log(`Default password for all seeded accounts: ${DEFAULT_PASSWORD}`);
   } catch (err) {
     await client.query('ROLLBACK');

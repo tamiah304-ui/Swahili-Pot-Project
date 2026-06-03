@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Upload } from 'lucide-react';
 import { createSubmission } from '../../api/submissions';
 import { useToast } from '../../components/ui/Toast';
@@ -13,6 +13,7 @@ const FORM_TYPES = [
   'Learner Onboarding Form',
   'Session Outline',
   'Progress Report',
+  'Assignment',
   'General Submission',
 ];
 
@@ -22,8 +23,14 @@ const MAX_BYTES = 10 * 1024 * 1024;
 export default function NewSubmissionPage() {
   const navigate = useNavigate();
   const { show } = useToast();
+  const [searchParams] = useSearchParams();
+  const taskId = searchParams.get('task');
 
-  const [form, setForm] = useState({ title: '', form_type: '', description: '' });
+  const [form, setForm] = useState({
+    title: '',
+    form_type: taskId ? 'Assignment' : '',
+    description: '',
+  });
   const [file, setFile] = useState(null);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +52,7 @@ export default function NewSubmissionPage() {
     fd.append('title', form.title.trim());
     fd.append('form_type', form.form_type);
     if (form.description.trim()) fd.append('description', form.description.trim());
+    if (taskId) fd.append('task_id', taskId);
     if (file) fd.append('attachment', file);
 
     setSubmitting(true);

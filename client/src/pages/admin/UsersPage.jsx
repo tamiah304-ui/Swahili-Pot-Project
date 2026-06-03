@@ -21,8 +21,15 @@ import EmptyState from '../../components/ui/EmptyState';
 import { Table, THead, TH, TBody, TR, TD } from '../../components/ui/Table';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ROLE_LABEL = { admin: 'Admin', supervisor: 'Supervisor', instructor: 'Instructor' };
-const ROLE_VARIANT = { admin: 'blue', supervisor: 'amber', instructor: 'green' };
+const ROLE_LABEL = { admin: 'Admin', supervisor: 'Supervisor', instructor: 'Instructor', attachee: 'Attachee' };
+const ROLE_VARIANT = { admin: 'blue', supervisor: 'amber', instructor: 'green', attachee: 'gray' };
+const ROLE_TABS = [
+  { value: '', label: 'All' },
+  { value: 'supervisor', label: 'Supervisors' },
+  { value: 'instructor', label: 'Instructors' },
+  { value: 'attachee', label: 'Attachees' },
+  { value: 'admin', label: 'Admins' },
+];
 
 export default function UsersPage() {
   const { user: me } = useAuth();
@@ -138,6 +145,21 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-5">
+      {/* Role tabs — group accounts by type */}
+      <div className="flex flex-wrap gap-2">
+        {ROLE_TABS.map((t) => (
+          <button
+            key={t.value || 'all'}
+            onClick={() => setFilters({ ...filters, role: t.value })}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              filters.role === t.value ? 'bg-accentSoft text-brand-600' : 'text-subtle hover:bg-hover'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {/* Filters + create */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[200px] flex-1">
@@ -157,6 +179,7 @@ export default function UsersPage() {
           <option value="">All roles</option>
           <option value="supervisor">Supervisors</option>
           <option value="instructor">Instructors</option>
+          <option value="attachee">Attachees</option>
           <option value="admin">Admins</option>
         </select>
         <select
@@ -252,6 +275,7 @@ export default function UsersPage() {
             <option value="">Select a role…</option>
             <option value="supervisor">Supervisor</option>
             <option value="instructor">Instructor</option>
+            <option value="attachee">Attachee</option>
           </Select>
           <Select label="Department" value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })} error={formErrors.department_id}>
             <option value="">Select a department…</option>

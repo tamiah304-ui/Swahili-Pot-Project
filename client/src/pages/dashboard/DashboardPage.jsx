@@ -15,6 +15,7 @@ import {
 import { getDashboard } from '../../api/dashboard';
 import { getAdminStats } from '../../api/admin';
 import { useAuth } from '../../context/AuthContext';
+import AttacheeDashboard from '../attachee/AttacheeDashboard';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Spinner from '../../components/ui/Spinner';
@@ -39,6 +40,7 @@ function StatCard({ icon: Icon, label, value, hint }) {
 export default function DashboardPage() {
   const { user } = useAuth();
   if (user.role === 'admin') return <AdminDashboard />;
+  if (user.role === 'attachee') return <AttacheeDashboard />;
   return <StaffDashboard user={user} />;
 }
 

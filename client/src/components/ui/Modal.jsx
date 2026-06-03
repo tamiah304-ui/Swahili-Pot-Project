@@ -3,28 +3,35 @@ import { X } from 'lucide-react';
 
 export default function Modal({ isOpen, onClose, title, children, footer }) {
   const contentRef = useRef(null);
+  // Keep the latest onClose without making it an effect dependency — otherwise
+  // the effect would re-run on every parent re-render (e.g. each keystroke)
+  // and steal focus back to the first focusable element.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!isOpen) return undefined;
 
     function onKey(e) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     }
     document.addEventListener('keydown', onKey);
-
-    // Focus the first focusable element inside the modal.
-    const node = contentRef.current;
-    const focusable = node?.querySelector(
-      'input, textarea, select, button, [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusable) focusable.focus();
-
     document.body.style.overflow = 'hidden';
+
+    // On open, focus the first form field (not the close button) so typing
+    // goes straight into the form.
+    const node = contentRef.current;
+    const field = node?.querySelector('input, textarea, select');
+    if (field) field.focus();
+    else node?.focus();
+
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
-  }, [isOpen, onClose]);
+    // Intentionally only depends on isOpen — see onCloseRef note above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -59,12 +66,14 @@ export default function Modal({ isOpen, onClose, title, children, footer }) {
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         onKeyDown={handleKeyDownTrap}
-        className="w-full max-w-md rounded-xl border border-line bg-card shadow-lg"
+        className="w-full max-w-md rounded-xl border border-line bg-card shadow-lg focus:outline-none"
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>
           <button
+            type="button"
             onClick={onClose}
             className="rounded-md p-1 text-subtle hover:bg-hover"
             aria-label="Close"

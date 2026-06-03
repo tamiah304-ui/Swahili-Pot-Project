@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   name VARCHAR(150) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role VARCHAR(20) NOT NULL CHECK (role IN ('supervisor', 'instructor', 'admin')),
+  role VARCHAR(20) NOT NULL CHECK (role IN ('supervisor', 'instructor', 'admin', 'attachee')),
   -- NULL for system admins, who are not bound to a single department.
   department_id INTEGER REFERENCES departments(id) ON DELETE RESTRICT,
   is_active BOOLEAN NOT NULL DEFAULT true,
@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS form_submissions (
   file_original_name VARCHAR(255),
   status VARCHAR(30) NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted', 'acknowledged', 'returned')),
   supervisor_note TEXT,
+  file_storage VARCHAR(10),
+  task_id INTEGER,
   submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   acknowledged_at TIMESTAMPTZ,
   acknowledged_by INTEGER REFERENCES users(id)
@@ -110,3 +112,74 @@ CREATE TABLE IF NOT EXISTS password_resets (
 );
 
 CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets (token_hash);
+
+-- ---- Attachment / internship programme ----
+
+-- Tasks & assignments allocated to attachees by instructors/supervisors.
+CREATE TABLE IF NOT EXISTS tasks (
+  id SERIAL PRIMARY KEY,
+  department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+  assigned_to INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  assigned_by INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  title VARCHAR(200) NOT NULL,
+  description TEXT,
+  priority VARCHAR(10) NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+  due_date DATE,
+  status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'submitted', 'completed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks (assigned_to, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_department ON tasks (department_id);
+
+-- Personal reminders an attachee sets for themselves.
+CREATE TABLE IF NOT EXISTS reminders (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title VARCHAR(200) NOT NULL,
+  note TEXT,
+  remind_at TIMESTAMPTZ NOT NULL,
+  is_done BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_reminders_user ON reminders (user_id, remind_at);
+
+-- Simple click-to-check-in attendance for attachees (no QR session).
+CREATE TABLE IF NOT EXISTS attachee_checkins (
+  id SERIAL PRIMARY KEY,
+  attachee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+  check_in TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  check_out TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_checkins_attachee ON attachee_checkins (attachee_id, check_in DESC);
+CREATE INDEX IF NOT EXISTS idx_checkins_department ON attachee_checkins (department_id, check_in DESC);
+
+-- Inquiries from attachees to their instructors / supervisors (threaded).
+CREATE TABLE IF NOT EXISTS inquiries (
+  id SERIAL PRIMARY KEY,
+  attachee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE RESTRICT,
+  subject VARCHAR(200) NOT NULL,
+  audience VARCHAR(20) NOT NULL DEFAULT 'both' CHECK (audience IN ('instructors', 'supervisors', 'both')),
+  status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'answered', 'closed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_inquiries_attachee ON inquiries (attachee_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_inquiries_department ON inquiries (department_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS inquiry_messages (
+  id SERIAL PRIMARY KEY,
+  inquiry_id INTEGER NOT NULL REFERENCES inquiries(id) ON DELETE CASCADE,
+  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_inquiry_messages_inquiry ON inquiry_messages (inquiry_id, created_at);

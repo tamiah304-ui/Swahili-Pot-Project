@@ -19,12 +19,18 @@ async function runOnce() {
     await client.query(sql);
 
     // --- Idempotent upgrades for databases created before these features ---
-    // Allow the 'admin' role and let admins exist without a department.
+    // Allow the 'admin' and 'attachee' roles; admins exist without a department.
     await client.query("ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check");
     await client.query(
-      "ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('supervisor', 'instructor', 'admin'))"
+      "ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('supervisor', 'instructor', 'admin', 'attachee'))"
     );
     await client.query('ALTER TABLE users ALTER COLUMN department_id DROP NOT NULL');
+
+    // Submission storage driver + optional task link (added for attachees/uploads).
+    await client.query(
+      "ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS file_storage VARCHAR(10)"
+    );
+    await client.query('ALTER TABLE form_submissions ADD COLUMN IF NOT EXISTS task_id INTEGER');
 
     // Intentional startup logging.
     console.log('Database migration complete — all tables ensured.');

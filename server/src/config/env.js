@@ -11,11 +11,14 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters'),
   CLIENT_URL: z.string().url('CLIENT_URL must be a valid URL'),
-  // S3 (or S3-compatible) storage for uploaded files
-  AWS_REGION: z.string().min(1, 'AWS_REGION is required'),
-  AWS_ACCESS_KEY_ID: z.string().min(1, 'AWS_ACCESS_KEY_ID is required'),
-  AWS_SECRET_ACCESS_KEY: z.string().min(1, 'AWS_SECRET_ACCESS_KEY is required'),
-  S3_BUCKET: z.string().min(1, 'S3_BUCKET is required'),
+  // File storage driver: 'local' (disk, default) or 's3'.
+  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  UPLOADS_DIR: z.string().default('./uploads'),
+  // S3 (or S3-compatible) storage — only required when STORAGE_DRIVER=s3.
+  AWS_REGION: z.string().optional(),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  S3_BUCKET: z.string().optional(),
   // Optional: custom endpoint for S3-compatible providers (R2, MinIO, ...)
   S3_ENDPOINT: z.string().url('S3_ENDPOINT must be a valid URL').optional(),
   // SMTP for password-reset emails. Optional: if unset, reset links are logged
@@ -28,7 +31,16 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
-});
+}).refine(
+  (env) =>
+    env.STORAGE_DRIVER !== 's3' ||
+    (env.AWS_REGION && env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY && env.S3_BUCKET),
+  {
+    message:
+      'STORAGE_DRIVER=s3 requires AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY and S3_BUCKET',
+    path: ['STORAGE_DRIVER'],
+  }
+);
 
 function loadEnv() {
   const parsed = envSchema.safeParse(process.env);
