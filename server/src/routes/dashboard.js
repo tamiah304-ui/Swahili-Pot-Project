@@ -19,10 +19,15 @@ router.get('/', verifyToken, async (req, res, next) => {
     const dept = deptResult.rows[0] || {};
 
     if (req.user.role === 'instructor') {
-      const [trainees, sessions, submissions, downtime, recent] = await Promise.all([
+      const [trainees, attachees, sessions, submissions, downtime, recent] = await Promise.all([
         pool.query(
           `SELECT COUNT(*)::int AS count FROM trainees
             WHERE department_id = $1 AND is_active = true`,
+          [deptId]
+        ),
+        pool.query(
+          `SELECT COUNT(*)::int AS count FROM users
+            WHERE role = 'attachee' AND department_id = $1 AND is_active = true`,
           [deptId]
         ),
         pool.query(
@@ -65,6 +70,7 @@ router.get('/', verifyToken, async (req, res, next) => {
         has_trainees: dept.has_trainees,
         stats: {
           trainees: trainees.rows[0].count,
+          attachees: attachees.rows[0].count,
           sessionsThisMonth: sessions.rows[0].count,
           submissionsThisMonth: submissionsTotal,
           submissionsByStatus,
@@ -75,10 +81,15 @@ router.get('/', verifyToken, async (req, res, next) => {
     }
 
     // supervisor
-    const [instructors, trainees, pending, downtime, recent] = await Promise.all([
+    const [instructors, attachees, trainees, pending, downtime, recent] = await Promise.all([
       pool.query(
         `SELECT COUNT(*)::int AS count FROM users
           WHERE role = 'instructor' AND department_id = $1`,
+        [deptId]
+      ),
+      pool.query(
+        `SELECT COUNT(*)::int AS count FROM users
+          WHERE role = 'attachee' AND department_id = $1 AND is_active = true`,
         [deptId]
       ),
       pool.query(
@@ -116,6 +127,7 @@ router.get('/', verifyToken, async (req, res, next) => {
       has_trainees: dept.has_trainees,
       stats: {
         instructors: instructors.rows[0].count,
+        attachees: attachees.rows[0].count,
         trainees: trainees.rows[0].count,
         pendingSubmissions: pending.rows[0].count,
         openDowntime: downtime.rows[0].count,

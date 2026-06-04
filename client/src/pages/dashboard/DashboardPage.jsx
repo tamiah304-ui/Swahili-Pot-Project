@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   Building2,
   UserX,
+  GraduationCap,
 } from 'lucide-react';
 import { getDashboard } from '../../api/dashboard';
 import { getAdminStats } from '../../api/admin';
@@ -72,9 +73,10 @@ function AdminDashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={UserCog} label="Supervisors" value={stats.supervisors} />
         <StatCard icon={Users} label="Instructors" value={stats.instructors} />
+        <StatCard icon={GraduationCap} label="Attachees" value={stats.attachees} />
         <StatCard icon={Building2} label="Departments" value={stats.departments} />
-        <StatCard icon={UserX} label="Suspended Accounts" value={stats.suspended} />
         <StatCard icon={ShieldCheck} label="Admins" value={stats.admins} />
+        <StatCard icon={UserX} label="Suspended Accounts" value={stats.suspended} />
         <StatCard icon={Users} label="Active Trainees" value={stats.trainees} />
         <StatCard icon={FileText} label="Total Submissions" value={stats.submissions} />
         <StatCard icon={Radio} label="Open Downtime" value={stats.open_downtime} />
@@ -132,6 +134,7 @@ function StaffDashboard({ user }) {
         {data.role === 'instructor' ? (
           <>
             <StatCard icon={Users} label="Active Trainees" value={stats.trainees} />
+            <StatCard icon={GraduationCap} label="Attachees" value={stats.attachees} />
             <StatCard
               icon={ClipboardCheck}
               label="Sessions This Month"
@@ -150,6 +153,7 @@ function StaffDashboard({ user }) {
         ) : (
           <>
             <StatCard icon={UserCog} label="Instructors" value={stats.instructors} />
+            <StatCard icon={GraduationCap} label="Attachees" value={stats.attachees} />
             <StatCard icon={Users} label="Active Trainees" value={stats.trainees} />
             <StatCard
               icon={FileText}
