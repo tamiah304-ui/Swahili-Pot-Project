@@ -6,6 +6,7 @@
 
 require('dotenv').config({ override: true });
 const { sendMail, provider, getSender } = require('../lib/mailer');
+const { renderEmail } = require('../lib/emailTemplate');
 
 const to = process.argv[2];
 if (!to || !to.includes('@')) {
@@ -18,16 +19,14 @@ console.log(`Provider: ${provider()}`);
 console.log(`Sender:   ${sender.name} <${sender.email}>`);
 console.log(`Sending test email to: ${to} ...\n`);
 
-sendMail({
-  to,
-  subject: 'SwahiliPot IMS — test email',
-  text: 'If you can read this, email delivery is working. — SwahiliPot IMS',
-  html:
-    '<div style="font-family:sans-serif">' +
-    '<h2 style="color:#1e40af">SwahiliPot IMS</h2>' +
-    '<p>If you can read this, your email delivery is working. ✅</p>' +
-    '</div>',
-})
+const { html, text } = renderEmail({
+  heading: 'Email delivery test',
+  name: 'there',
+  intro: 'If you can read this, your SwahiliPot IMS email delivery is working correctly.',
+  outro: 'You can safely ignore this message — it was sent from the mail test command.',
+});
+
+sendMail({ to, subject: 'SwahiliPot IMS — test email', html, text })
   .then((sent) => {
     if (sent) {
       console.log('\n✅ Accepted by the provider.');

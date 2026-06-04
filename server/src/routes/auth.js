@@ -7,6 +7,7 @@ const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
 const verifyToken = require('../middleware/auth');
 const { sendMail } = require('../lib/mailer');
+const { renderEmail } = require('../lib/emailTemplate');
 
 const router = express.Router();
 
@@ -183,17 +184,14 @@ router.post('/forgot-password', async (req, res, next) => {
       // email delivery is unavailable.
       console.log(`[reset] link for ${normalized}: ${resetUrl}`);
 
-      const text =
-        `Hello ${user.name},\n\n` +
-        `We received a request to reset your SwahiliPot IMS password.\n` +
-        `Use the link below within ${RESET_TTL_MINUTES} minutes:\n\n${resetUrl}\n\n` +
-        `If you didn't request this, you can safely ignore this email.`;
-      const html =
-        `<p>Hello ${user.name},</p>` +
-        `<p>We received a request to reset your SwahiliPot IMS password. ` +
-        `This link is valid for ${RESET_TTL_MINUTES} minutes:</p>` +
-        `<p><a href="${resetUrl}">Reset your password</a></p>` +
-        `<p>If you didn't request this, you can safely ignore this email.</p>`;
+      const { html, text } = renderEmail({
+        heading: 'Reset your password',
+        name: user.name,
+        intro: `We received a request to reset your SwahiliPot IMS password. Click the button below to choose a new one. This link is valid for ${RESET_TTL_MINUTES} minutes.`,
+        ctaLabel: 'Reset Your Password',
+        ctaUrl: resetUrl,
+        outro: "If you didn't request this, you can safely ignore this email — your password won't change.",
+      });
 
       // Fire-and-forget: never block the HTTP response on email delivery, so
       // the request can't hang if the mail provider is slow or unreachable.
