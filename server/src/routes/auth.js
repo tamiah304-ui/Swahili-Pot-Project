@@ -179,6 +179,10 @@ router.post('/forgot-password', async (req, res, next) => {
       );
 
       const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${rawToken}`;
+      // Always log the link so it's recoverable from the server logs even if
+      // email delivery is unavailable.
+      console.log(`[reset] link for ${normalized}: ${resetUrl}`);
+
       const text =
         `Hello ${user.name},\n\n` +
         `We received a request to reset your SwahiliPot IMS password.\n` +
@@ -191,11 +195,13 @@ router.post('/forgot-password', async (req, res, next) => {
         `<p><a href="${resetUrl}">Reset your password</a></p>` +
         `<p>If you didn't request this, you can safely ignore this email.</p>`;
 
-      try {
-        await sendMail({ to: normalized, subject: 'Reset your SwahiliPot IMS password', text, html });
-      } catch (mailErr) {
-        console.error(`[${new Date().toISOString()}] Failed to send reset email:`, mailErr.message);
-      }
+      // Fire-and-forget: never block the HTTP response on email delivery, so
+      // the request can't hang if the mail provider is slow or unreachable.
+      sendMail({ to: normalized, subject: 'Reset your SwahiliPot IMS password', text, html }).catch(
+        (mailErr) => {
+          console.error(`[${new Date().toISOString()}] [reset] email send failed:`, mailErr.message);
+        }
+      );
     }
 
     return res.json({ message: 'If that account exists, a reset link has been sent.' });
