@@ -9,7 +9,17 @@ const express = require('express');
 const router = express.Router();
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
+// Tried in order — free models often get rate-limited upstream, so we fall
+// back to the next one on a 429/5xx. OPENROUTER_MODEL (if set) goes first.
+const FALLBACK_MODELS = [
+  process.env.OPENROUTER_MODEL,
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'meta-llama/llama-3.1-8b-instruct:free',
+  'mistralai/mistral-7b-instruct:free',
+  'google/gemma-2-9b-it:free',
+  'qwen/qwen-2.5-7b-instruct:free',
+].filter((m, i, arr) => m && arr.indexOf(m) === i);
+
 const MAX_MESSAGES = 12;   // only keep the tail of the conversation
 const MAX_LEN = 2000;      // per-message character cap
 
@@ -75,37 +85,56 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ error: 'A question is required.' });
     }
 
-    const response = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.CLIENT_URL || 'https://swahilipothub.co.ke',
-        'X-Title': 'SwahiliPot IMS Assistant',
-      },
-      body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL || DEFAULT_MODEL,
-        messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...history],
-        temperature: 0.2,
-        max_tokens: 600,
-      }),
-    });
+    const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...history];
+    let lastStatus = 0;
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => '');
-      console.error(`[chat] OpenRouter ${response.status}: ${text.slice(0, 300)}`);
-      if (response.status === 429) {
-        return res.status(429).json({ error: 'The assistant is busy right now — please try again in a moment.' });
+    // Try each free model in turn; fall through on 429 / 5xx.
+    for (const model of FALLBACK_MODELS) {
+      let response;
+      try {
+        response = await fetch(OPENROUTER_URL, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': process.env.CLIENT_URL || 'https://swahilipothub.co.ke',
+            'X-Title': 'SwahiliPot IMS Assistant',
+          },
+          body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: 600 }),
+        });
+      } catch (fetchErr) {
+        console.error(`[chat] ${model} network error: ${fetchErr.message}`);
+        lastStatus = 502;
+        continue;
       }
-      return res.status(502).json({ error: 'The assistant is unavailable right now. Please try again later.' });
+
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const reply = data?.choices?.[0]?.message?.content?.trim();
+        if (reply) return res.json({ reply });
+        console.error(`[chat] ${model} returned no content; trying next model.`);
+        lastStatus = 502;
+        continue;
+      }
+
+      lastStatus = response.status;
+      const text = await response.text().catch(() => '');
+      console.error(`[chat] ${model} -> ${response.status}: ${text.slice(0, 200)}`);
+
+      // Invalid key / forbidden won't be fixed by another model — stop early.
+      if (response.status === 401 || response.status === 403) break;
+      // For 429 and 5xx, keep going to the next model.
     }
 
-    const data = await response.json();
-    const reply = data?.choices?.[0]?.message?.content?.trim();
-    if (!reply) {
-      return res.status(502).json({ error: 'The assistant did not return a response. Please try again.' });
+    if (lastStatus === 401 || lastStatus === 403) {
+      return res.status(502).json({ error: 'The assistant is misconfigured. Please contact the administrator.' });
     }
-    return res.json({ reply });
+    if (lastStatus === 429) {
+      return res.status(429).json({
+        error: 'The assistant is busy (free model limit reached). Please try again in a minute.',
+      });
+    }
+    return res.status(502).json({ error: 'The assistant is unavailable right now. Please try again later.' });
   } catch (err) {
     return next(err);
   }
