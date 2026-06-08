@@ -1,28 +1,60 @@
 'use strict';
 
-// SwahiliPot Q&A assistant. Proxies a free OpenRouter model so the API key
-// stays on the server and the "Swahilipot-only" system prompt can't be bypassed
-// by editing client-side code.
+// SwahiliPot Q&A assistant. Proxies an LLM through the server so the API key
+// stays private and the "Swahilipot-only" system prompt can't be bypassed by
+// editing client-side code. Supports NVIDIA (preferred) or OpenRouter — both
+// use the OpenAI-compatible /chat/completions shape.
 
 const express = require('express');
 
 const router = express.Router();
 
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-// Tried in order — free models often get rate-limited upstream, so we fall
-// back to the next on a 429/5xx (invalid models return 400 and are skipped).
-// Lead with smaller, less-congested models on different providers; the very
-// popular llama-3.3-70b goes LAST because it's the most rate-limited.
-// OPENROUTER_MODEL (if set, e.g. a paid model) is always tried first.
-const FALLBACK_MODELS = [
-  process.env.OPENROUTER_MODEL,
-  'mistralai/mistral-7b-instruct:free',
-  'google/gemma-2-9b-it:free',
-  'meta-llama/llama-3.1-8b-instruct:free',
-  'deepseek/deepseek-chat-v3-0324:free',
-  'qwen/qwen-2.5-7b-instruct:free',
-  'meta-llama/llama-3.3-70b-instruct:free',
-].filter((m, i, arr) => m && arr.indexOf(m) === i);
+const uniq = (arr) => arr.filter((v, i, a) => v && a.indexOf(v) === i);
+
+/**
+ * Resolve the active chat provider from the environment.
+ * NVIDIA is used when NVIDIA_API_KEY is set, otherwise OpenRouter.
+ * `models` are tried in order (the first that responds wins); a custom
+ * <PROVIDER>_MODEL is always tried first.
+ */
+function getProvider() {
+  if (process.env.NVIDIA_API_KEY) {
+    return {
+      name: 'nvidia',
+      url: process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1/chat/completions',
+      key: process.env.NVIDIA_API_KEY,
+      extraHeaders: {},
+      models: uniq([
+        process.env.NVIDIA_MODEL,
+        'meta/llama-3.1-8b-instruct',
+        'mistralai/mistral-7b-instruct-v0.3',
+        'meta/llama-3.3-70b-instruct',
+        'nvidia/llama-3.1-nemotron-70b-instruct',
+        'google/gemma-2-9b-it',
+      ]),
+    };
+  }
+  if (process.env.OPENROUTER_API_KEY) {
+    return {
+      name: 'openrouter',
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      key: process.env.OPENROUTER_API_KEY,
+      extraHeaders: {
+        'HTTP-Referer': process.env.CLIENT_URL || 'https://swahilipothub.co.ke',
+        'X-Title': 'SwahiliPot IMS Assistant',
+      },
+      models: uniq([
+        process.env.OPENROUTER_MODEL,
+        'mistralai/mistral-7b-instruct:free',
+        'google/gemma-2-9b-it:free',
+        'meta-llama/llama-3.1-8b-instruct:free',
+        'deepseek/deepseek-chat-v3-0324:free',
+        'meta-llama/llama-3.3-70b-instruct:free',
+      ]),
+    };
+  }
+  return null;
+}
 
 const MAX_MESSAGES = 12;   // only keep the tail of the conversation
 const MAX_LEN = 2000;      // per-message character cap
@@ -70,7 +102,8 @@ function rateLimited(ip) {
 // POST /api/chat — public
 router.post('/', async (req, res, next) => {
   try {
-    if (!process.env.OPENROUTER_API_KEY) {
+    const provider = getProvider();
+    if (!provider) {
       return res.status(503).json({ error: 'The assistant is not configured yet. Please try again later.' });
     }
 
@@ -92,22 +125,21 @@ router.post('/', async (req, res, next) => {
     const messages = [{ role: 'system', content: SYSTEM_PROMPT }, ...history];
     let lastStatus = 0;
 
-    // Try each free model in turn; fall through on 429 / 5xx.
-    for (const model of FALLBACK_MODELS) {
+    // Try each model in turn; fall through on 429 / 5xx.
+    for (const model of provider.models) {
       let response;
       try {
-        response = await fetch(OPENROUTER_URL, {
+        response = await fetch(provider.url, {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            Authorization: `Bearer ${provider.key}`,
             'Content-Type': 'application/json',
-            'HTTP-Referer': process.env.CLIENT_URL || 'https://swahilipothub.co.ke',
-            'X-Title': 'SwahiliPot IMS Assistant',
+            ...provider.extraHeaders,
           },
           body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: 600 }),
         });
       } catch (fetchErr) {
-        console.error(`[chat] ${model} network error: ${fetchErr.message}`);
+        console.error(`[chat:${provider.name}] ${model} network error: ${fetchErr.message}`);
         lastStatus = 502;
         continue;
       }
@@ -115,15 +147,18 @@ router.post('/', async (req, res, next) => {
       if (response.ok) {
         const data = await response.json().catch(() => ({}));
         const reply = data?.choices?.[0]?.message?.content?.trim();
-        if (reply) return res.json({ reply });
-        console.error(`[chat] ${model} returned no content; trying next model.`);
+        if (reply) {
+          console.log(`[chat:${provider.name}] answered with ${model}`);
+          return res.json({ reply });
+        }
+        console.error(`[chat:${provider.name}] ${model} returned no content; trying next.`);
         lastStatus = 502;
         continue;
       }
 
       lastStatus = response.status;
       const text = await response.text().catch(() => '');
-      console.error(`[chat] ${model} -> ${response.status}: ${text.slice(0, 200)}`);
+      console.error(`[chat:${provider.name}] ${model} -> ${response.status}: ${text.slice(0, 200)}`);
 
       // Invalid key / forbidden won't be fixed by another model — stop early.
       if (response.status === 401 || response.status === 403) break;

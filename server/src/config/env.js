@@ -33,7 +33,11 @@ const envSchema = z.object({
   SMTP_FROM: z.string().optional(),
   // Brevo transactional HTTP API key — preferred on hosts that block SMTP ports.
   BREVO_API_KEY: z.string().optional(),
-  // OpenRouter (the Q&A chatbot). If unset, the chat endpoint is disabled.
+  // Q&A chatbot provider. NVIDIA is used when NVIDIA_API_KEY is set, else
+  // OpenRouter. If neither is set, the chat endpoint is disabled.
+  NVIDIA_API_KEY: z.string().optional(),
+  NVIDIA_MODEL: z.string().optional(),
+  NVIDIA_BASE_URL: z.string().url('NVIDIA_BASE_URL must be a valid URL').optional(),
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_MODEL: z.string().optional(),
   // Verified sender. Falls back to SMTP_FROM if not set.
