@@ -33,5 +33,6 @@ Thumbs.db
 .idea/
 *.swp
 
-# Keep VS Code shared settings out by default
+# Editor / AI assistant folders
 .vscode/
+.claude/
