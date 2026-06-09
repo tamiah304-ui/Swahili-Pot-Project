@@ -9,6 +9,7 @@
     "dev": "node --watch index.js",
     "migrate": "node src/db/migrate.js",
     "seed": "node src/db/seed.js",
+    "seed:ai-demo": "node src/db/seedAiDemo.js",
     "mail:test": "node src/scripts/testMail.js"
   },
   "dependencies": {
