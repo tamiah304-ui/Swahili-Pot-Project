@@ -92,22 +92,30 @@ export default function AttacheeProfilePage() {
   const score = typeof profile.engagement_score === 'number' ? profile.engagement_score : null;
 
   // Competency scores → radar chart axes (peaks = strengths, dips = growth areas).
-  const competencies =
-    profile.competencies && typeof profile.competencies === 'object'
-      ? profile.competencies
-      : (() => {
-          try {
-            return JSON.parse(profile.competencies);
-          } catch {
-            return null;
-          }
-        })();
-  const radarData = competencies
-    ? Object.entries(competencies)
-        .filter(([, v]) => typeof v === 'number')
-        .slice(0, 8)
-        .map(([label, value]) => ({ label: COMP_SHORT[label] || label, fullLabel: label, value }))
-    : [];
+  let competencies = profile.competencies;
+  if (typeof competencies === 'string') {
+    try { competencies = JSON.parse(competencies); } catch { competencies = null; }
+  }
+  // Accept either an object { Attendance: 85, ... } or an array
+  // [{ name|label|skill, score|value }] — the model occasionally returns either.
+  let compEntries = [];
+  if (Array.isArray(competencies)) {
+    compEntries = competencies.map((c) => [
+      c.name || c.label || c.skill || c.dimension,
+      c.score ?? c.value ?? c.rating,
+    ]);
+  } else if (competencies && typeof competencies === 'object') {
+    compEntries = Object.entries(competencies);
+  }
+  // Coerce values to numbers (the model sometimes emits "85" or "85%").
+  const radarData = compEntries
+    .map(([label, v]) => ({
+      label: COMP_SHORT[label] || label,
+      fullLabel: label,
+      value: Number(String(v).replace(/[^0-9.]/g, '')),
+    }))
+    .filter((d) => d.label && Number.isFinite(d.value))
+    .slice(0, 8);
 
   const ratingClass = {
     Excellent: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-400',
@@ -212,6 +220,22 @@ export default function AttacheeProfilePage() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* No competency scores on this profile (generated before the radar was
+          added, or the model omitted them) — prompt a refresh. */}
+      {radarData.length < 3 && (
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5">
+          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 mb-1">
+            <Radar className="w-4 h-4" />
+            <h3 className="font-medium text-sm">Competency Profile</h3>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            This profile doesn’t include competency scores yet. Click{' '}
+            <span className="font-medium text-gray-700 dark:text-gray-300">Refresh Analysis</span> above
+            to regenerate it and produce the radar chart.
+          </p>
         </div>
       )}
 

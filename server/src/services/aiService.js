@@ -102,7 +102,7 @@ Respond ONLY with a single valid JSON object — no markdown fences, no extra te
 
 Rules:
 - Ground EVERY claim in the provided data. Cite specific numbers where possible. Do NOT invent submissions, grades, or task outcomes that are not shown.
-- competencies: score all SIX dimensions 0-100, grounded in the data (attendance volume & consistency, arrival punctuality, week-to-week consistency/streaks, programme engagement, reported task work, and self-direction/initiative). Use 50 when a dimension genuinely cannot be judged from the data. These scores power a radar chart, so keep them consistent with the strengths/weaknesses narrative — high scores are strengths, low scores are growth areas.
+- competencies: ALWAYS include this object with ALL SIX keys exactly as named (Attendance, Punctuality, Consistency, Engagement, Task Performance, Initiative). Each value MUST be a plain integer from 0 to 100 (e.g. 82) — never a string, percentage sign, range, or null. Use 50 when a dimension genuinely cannot be judged from the data. These scores power a radar chart, so keep them consistent with the strengths/weaknesses narrative — high scores are strengths, low scores are growth areas.
 - career_paths: exactly 3, ordered by confidence descending.
 - If data is thin, say so honestly in the relevant fields and keep confidence modest — but still fill every field.
 - Return ONLY the JSON object.`;
