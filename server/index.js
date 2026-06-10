@@ -6,7 +6,7 @@ require('dotenv').config({ override: true });
 
 const { loadEnv } = require('./src/config/env');
 const { checkS3 } = require('./src/lib/s3');
-const { logMailConfig } = require('./src/lib/mailer');
+const { logMailConfig, verifyMailSetup } = require('./src/lib/mailer');
 
 // 1. Validate environment — crashes the process if anything required is missing.
 const env = loadEnv();
@@ -22,8 +22,10 @@ async function start() {
   // 3. Verify file storage so misconfiguration shows up clearly in the logs.
   await checkS3();
 
-  // 3b. Log the active email + chat providers.
+  // 3b. Log the active email + chat providers, and actively verify email so a
+  //     bad key / unverified sender is obvious in the logs (non-blocking).
   logMailConfig();
+  verifyMailSetup().catch(() => {});
   require('./src/routes/chat').logChatConfig();
 
   // 4. Start the server.

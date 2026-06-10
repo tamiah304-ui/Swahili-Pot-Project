@@ -121,4 +121,84 @@ function logMailConfig() {
   }
 }
 
-module.exports = { sendMail, isConfigured, provider, getSender, logMailConfig };
+/**
+ * Actively verify the email setup at startup so misconfiguration is loud and
+ * specific in the logs instead of silently swallowing every send. For Brevo it
+ * validates the API key AND confirms the configured sender is a verified Brevo
+ * sender (an unverified sender is accepted by the API but never delivered — the
+ * usual cause of "it says sent but nothing arrives"). For SMTP it tests login.
+ */
+async function verifyMailSetup() {
+  const which = provider();
+  const sender = getSender();
+
+  if (which === 'none') {
+    console.warn(
+      '[mail] No email provider configured — password-reset and welcome emails will NOT be sent (reset links are logged to the console instead).'
+    );
+    return;
+  }
+
+  if (which === 'smtp') {
+    try {
+      await getTransporter().verify();
+      console.log(`[mail] SMTP login OK (${process.env.SMTP_HOST}) — sender <${sender.email}>.`);
+    } catch (e) {
+      console.error(
+        `[mail] SMTP login FAILED (${process.env.SMTP_HOST}): ${e.message}. ` +
+          'Set SMTP_USER to your Brevo login email and SMTP_PASS to a CURRENT Brevo SMTP key ' +
+          '(Brevo > SMTP & API > SMTP). Emails will NOT send until this is fixed.'
+      );
+    }
+    return;
+  }
+
+  // Brevo HTTP API.
+  const key = process.env.BREVO_API_KEY;
+  try {
+    const acc = await fetch('https://api.brevo.com/v3/account', {
+      headers: { 'api-key': key, accept: 'application/json' },
+    });
+    if (!acc.ok) {
+      const t = await acc.text().catch(() => '');
+      console.error(
+        `[mail] Brevo API key INVALID (HTTP ${acc.status}) — emails will NOT send. ` +
+          'Regenerate it in Brevo > SMTP & API > API Keys and update BREVO_API_KEY. ' +
+          t.slice(0, 160)
+      );
+      return;
+    }
+    const account = await acc.json().catch(() => ({}));
+    console.log(`[mail] Brevo key OK — account ${account.email || '(unknown)'}.`);
+
+    // Confirm the configured "from" address is a verified Brevo sender.
+    const sres = await fetch('https://api.brevo.com/v3/senders', {
+      headers: { 'api-key': key, accept: 'application/json' },
+    });
+    if (!sres.ok) return;
+    const data = await sres.json().catch(() => ({}));
+    const senders = Array.isArray(data.senders) ? data.senders : [];
+    const from = sender.email.toLowerCase();
+    const match = senders.find((s) => (s.email || '').toLowerCase() === from);
+    if (!match) {
+      console.error(
+        `[mail] WARNING: sender "${sender.email}" is NOT a verified Brevo sender. ` +
+          'Brevo accepts the API call but the message is NOT delivered. ' +
+          'Verify this address in Brevo > Senders, Domains & Dedicated IPs > Senders ' +
+          '(or set MAIL_FROM_EMAIL to a verified address). ' +
+          `Currently verified: ${senders.map((s) => s.email).join(', ') || '(none)'}.`
+      );
+    } else if (match.active === false) {
+      console.error(
+        `[mail] WARNING: sender "${sender.email}" exists in Brevo but is NOT confirmed — ` +
+          'click the verification link Brevo emailed to that address.'
+      );
+    } else {
+      console.log(`[mail] Sender "${sender.email}" is verified in Brevo — email is ready.`);
+    }
+  } catch (e) {
+    console.error(`[mail] Brevo self-check could not run: ${e.message}`);
+  }
+}
+
+module.exports = { sendMail, isConfigured, provider, getSender, logMailConfig, verifyMailSetup };
