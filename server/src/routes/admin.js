@@ -6,8 +6,12 @@ const pool = require('../db/pool');
 const verifyToken = require('../middleware/auth');
 const requireRole = require('../middleware/requireRole');
 const { notifyUser } = require('../lib/notify');
+const { sendMail } = require('../lib/mailer');
+const { renderEmail } = require('../lib/emailTemplate');
 const { audit } = require('../lib/auditLog');
 const { getSettings, setSettings, DEFAULTS } = require('../lib/platformSettings');
+
+const ROLE_LABELS = { supervisor: 'Supervisor', instructor: 'Instructor', attachee: 'Attachee' };
 
 const router = express.Router();
 
@@ -137,6 +141,21 @@ router.post('/users', async (req, res, next) => {
       body: `Your ${role} account has been created by an administrator.`,
       link: '/profile',
     });
+
+    // Email the new user their login details (fire-and-forget: never block or fail
+    // account creation on email delivery).
+    const { html, text } = renderEmail({
+      heading: 'Welcome to SwahiliPot IMS',
+      name: rows[0].name,
+      intro: `An administrator has created a ${ROLE_LABELS[role] || role} account for you on the Swahilipot Hub internal management system. Sign in with your email (${normalized}) and the temporary password below, then change it from your profile.`,
+      code: password,
+      ctaLabel: 'Sign In',
+      ctaUrl: `${process.env.CLIENT_URL}/login`,
+      outro: 'For your security, please change this password after your first sign-in. If you did not expect this email, please contact your administrator.',
+    });
+    sendMail({ to: normalized, subject: 'Your SwahiliPot IMS account', text, html }).catch((e) =>
+      console.error(`[admin] welcome email to ${normalized} failed: ${e.message}`)
+    );
 
     audit(req, 'user_create', {
       targetType: 'user',

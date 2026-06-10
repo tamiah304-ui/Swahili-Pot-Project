@@ -239,7 +239,8 @@ router.post('/', requireRole('instructor', 'supervisor'), async (req, res, next)
     const { html, text } = renderEmail({
       heading: 'Welcome to SwahiliPot IMS',
       name: user.name,
-      intro: `An attachee account has been created for you at Swahilipot Hub Foundation. Sign in with your email (${normalized}) and the temporary password below, then change it from your profile.\n\nTemporary password: ${tempPassword}`,
+      intro: `An attachee account has been created for you at Swahilipot Hub Foundation. Sign in with your email (${normalized}) and the temporary password below, then change it from your profile.`,
+      code: tempPassword,
       ctaLabel: 'Sign In',
       ctaUrl: `${process.env.CLIENT_URL}/login`,
       outro: 'For your security, please change this password after your first sign-in.',

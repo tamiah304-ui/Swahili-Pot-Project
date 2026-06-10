@@ -14,13 +14,24 @@ function esc(s) {
  * Build a branded, professional HTML email (logo header band, card body,
  * optional CTA button, footer). Uses table layout for email-client support.
  *
- *   renderEmail({ heading, name, intro, ctaLabel, ctaUrl, outro })
+ *   renderEmail({ heading, name, intro, code, ctaLabel, ctaUrl, outro })
+ * `code` (optional) renders a prominent monospace box (e.g. a temporary password).
  * Returns { html, text }.
  */
-function renderEmail({ heading, name, intro, ctaLabel, ctaUrl, outro }) {
+function renderEmail({ heading, name, intro, code, ctaLabel, ctaUrl, outro }) {
   const base = (process.env.CLIENT_URL || '').replace(/\/$/, '');
   const logo = `${base}/sph-logo-white.png`;
   const year = new Date().getFullYear();
+
+  const codeBlock = code
+    ? `
+        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 22px;">
+          <tr><td style="background:#f3f6fd;border:1px solid #dbe3f4;border-radius:10px;padding:16px 18px;text-align:center;">
+            <div style="font-size:11px;letter-spacing:.6px;color:#6b7280;text-transform:uppercase;margin-bottom:8px;">Temporary password</div>
+            <div style="font-family:'Courier New',Courier,monospace;font-size:22px;font-weight:bold;color:#1e40af;letter-spacing:1px;">${esc(code)}</div>
+          </td></tr>
+        </table>`
+    : '';
 
   const button =
     ctaUrl && ctaLabel
@@ -59,6 +70,7 @@ function renderEmail({ heading, name, intro, ctaLabel, ctaUrl, outro }) {
               <h1 style="margin:0 0 18px;font-size:20px;line-height:1.3;color:#111827;">${esc(heading)}</h1>
               ${name ? `<p style="margin:0 0 14px;font-size:15px;color:#374151;line-height:1.6;">Hello ${esc(name)},</p>` : ''}
               <p style="margin:0 0 22px;font-size:15px;color:#374151;line-height:1.6;">${esc(intro)}</p>
+              ${codeBlock}
               ${button}
               ${outro ? `<p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">${esc(outro)}</p>` : ''}
             </td>
@@ -81,6 +93,7 @@ function renderEmail({ heading, name, intro, ctaLabel, ctaUrl, outro }) {
     `${heading}\n\n` +
     (name ? `Hello ${name},\n\n` : '') +
     `${intro}\n\n` +
+    (code ? `Temporary password: ${code}\n\n` : '') +
     (ctaUrl ? `${ctaLabel}: ${ctaUrl}\n\n` : '') +
     (outro ? `${outro}\n\n` : '') +
     `— ${ORG}\n${ADDRESS}`;
